@@ -1,6 +1,6 @@
 import logging
 import sys
-from pyspark.sql import Window, DataFrame
+from pyspark.sql import DataFrame, functions as F
 
 
 logger = logging.getLogger()
@@ -26,8 +26,6 @@ class StagingTable:
         pass
 
 
-
-
 class DomainTable(StagingTable):
 
     def __init_(self, table_def: [str], concealing_helper, spark, table_setting):
@@ -42,6 +40,9 @@ class DomainTable(StagingTable):
 
         _df_stg_domain_1 = self.table_data["stg_domain_1"]
         _df_stg_domain_2 = self.table_data["stg_domain_2"]
+        _df_stg_domain_3 = self.table_data["stg_domain_3"]
+        _df_stg_domain_4 = self.table_data["stg_domain_4"]
+
 
         logger.info(f"Initialize Data Sources")
 
@@ -55,6 +56,26 @@ class DomainTable(StagingTable):
             column_names=["cust_id"],
         )
 
+        logger.info("Finishing concealing")
+
+        # Filtering combine table and drop col4
+        _df_stg_domains_combine = _df_stg_domains_combine.filter(_df_stg_domains_combine.col3 == "EN").drop("col4")
+
+        # Creating domains_combine DataFrames and drop col5 column
+        _df_domains_combine = _df_stg_domains_combine.join(_df_stg_domain_3, "id", "left")
+        _df_domains_combine = _df_domains_combine.drop("col5")
 
         logger.info("Finishing concealing")
+
+        return _df_domains_combine
+
+
+    def add_assembly_attributes(_df_domains_combine: DataFrame, _df_stg_domain_4: DataFrame) -> DataFrame:
+
+        _df_domains_combine = _df_domains_combine.withColumn('col5', when(
+            (_df_domains_combine['col6'].isNotNull() & (F.length('col7') > 3)),
+            F.split(F.col("col8"), "-")[0].cast(F.StringType())
+        ).otherwise(F.lit(None).cast(F.StringType())))
+
+
 

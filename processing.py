@@ -3,7 +3,7 @@ import sys
 from itertools import chain
 
 from pyspark.sql import DataFrame, functions as F
-from pyspark.sql.functions import when, col, create_map, lit, sha2, concat_ws
+from pyspark.sql.functions import when, col, create_map, lit, sha2, concat_ws, current_timestamp
 from pyspark.sql.types import IntegerType, StringType
 
 logger = logging.getLogger()
@@ -103,8 +103,6 @@ class DomainTable(StagingTable):
 
 
 
-
-
     @staticmethod
     def calculate_change(_df_stg_new: DataFrame, _df_stg_domain_current: DataFrame) -> DataFrame:
 
@@ -112,4 +110,6 @@ class DomainTable(StagingTable):
 
         _df_stg_new = _df_stg_new.withColumn("f_hash", sha2(concat_ws("",*DomainTable.hash_colums_list()), 256))
         _df_stg_new = _df_stg_new.withColumn("f_hash_last_change_timestamp", current_timestamp())
-        # TODO: Implement current_timestamp function  
+        
+        if _df_stg_domain_current is not None and _df_stg_domain_current.rdd.isEmpty() is False:
+            _df_stg_new = _df_stg_new.join(_df_stg_domain_current, _df_stg_new.f_hash == _df_stg_domain_current.f_hash, "leftanti")

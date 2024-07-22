@@ -3,7 +3,7 @@ import sys
 from itertools import chain
 
 from pyspark.sql import DataFrame, functions as F
-from pyspark.sql.functions import when, col, create_map, lit
+from pyspark.sql.functions import when, col, create_map, lit, sha2, concat_ws, current_timestamp
 from pyspark.sql.types import IntegerType, StringType
 
 logger = logging.getLogger()
@@ -62,19 +62,19 @@ class DomainTable(StagingTable):
         logger.info("Finishing concealing")
 
         # Filtering combine table and drop col4
-        _df_stg_domains_combine = _df_stg_domains_combine.filter(_df_stg_domains_combine.col3 == "EN").drop("col4")
+        _df_stg_domains_combine = _df_stg_domains_combine.filter(_df_stg_domains_combine.col_3 == "EN").drop("col_4")
 
         # Creating domains_combine DataFrames and drop col5 column
         _df_domains_combine = _df_stg_domains_combine.join(_df_stg_domain_3, "id", "left")
-        _df_domains_combine = _df_domains_combine.drop("col5")
+        _df_domains_combine = _df_domains_combine.drop("col_5")
 
         logger.info("Finishing concealing")
 
         return _df_domains_combine
 
     def add_assembly_attributes(_df_domains_combine: DataFrame, _df_stg_dim_domain_1: DataFrame) -> DataFrame:
-        _df_domains_combine = _df_domains_combine.withColumn('col5', when(
-            (_df_domains_combine['col6'].isNotNull() & (F.length('col7') > 3)),
+        _df_domains_combine = _df_domains_combine.withColumn('col_5', when(
+            (_df_domains_combine['col_6'].isNotNull() & (F.length('col_7') > 3)),
             F.split(F.col("col8"), "-")[0].cast(F.StringType())
         ).otherwise(F.lit(None).cast(F.StringType())))
 
@@ -95,3 +95,21 @@ class DomainTable(StagingTable):
                                                                  StringType()))
 
         return _df_domains_combine
+
+
+    @staticmethod
+    def hash_colums_list() -> [str]:
+        return ['col_8', 'col_9', 'col_10']
+
+
+
+    @staticmethod
+    def calculate_change(_df_stg_new: DataFrame, _df_stg_domain_current: DataFrame) -> DataFrame:
+
+        _row_num_field = "row_now"
+
+        _df_stg_new = _df_stg_new.withColumn("f_hash", sha2(concat_ws("",*DomainTable.hash_colums_list()), 256))
+        _df_stg_new = _df_stg_new.withColumn("f_hash_last_change_timestamp", current_timestamp())
+        
+        if _df_stg_domain_current is not None and _df_stg_domain_current.rdd.isEmpty() is False:
+            _df_stg_new = _df_stg_new.join(_df_stg_domain_current, _df_stg_new.f_hash == _df_stg_domain_current.f_hash, "leftanti")

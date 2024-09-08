@@ -113,3 +113,24 @@ class DomainTable(StagingTable):
         
         if _df_stg_domain_current is not None and _df_stg_domain_current.rdd.isEmpty() is False:
             _df_stg_new = _df_stg_new.join(_df_stg_domain_current, _df_stg_new.f_hash == _df_stg_domain_current.f_hash, "leftanti")
+
+            _df_stg_domain_current = 
+
+
+
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
